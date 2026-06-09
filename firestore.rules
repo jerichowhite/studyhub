@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── User profiles ──────────────────────────────────────────────────────────
+    // Owner can read/write their own profile.
+    // Other authenticated users can read profiles (needed for Campus Map popups,
+    // Peer Chat, and Gamification leaderboards).
+    match /users/{userId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Schedule events ────────────────────────────────────────────────────────
+    // Users can only access their own schedule.
+    match /scheduleEvents/{eventId} {
+      allow read, delete: if request.auth != null
+                          && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Whiteboards ────────────────────────────────────────────────────────────
+    // Document ID == userId, so ownership check is simple.
+    match /whiteboards/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Study materials ────────────────────────────────────────────────────────
+    // Any authenticated user can read materials (shared resources).
+    // Only the uploader can create / update / delete their own files.
+    match /materials/{materialId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.uploaderId == request.auth.uid;
+      allow update, delete: if request.auth != null
+                             && resource.data.uploaderId == request.auth.uid;
+    }
+
+    // ── Campus live map locations ──────────────────────────────────────────────
+    // Any authenticated user can read visible locations (Campus Map feature).
+    // Users can only write their own location document.
+    match /userLocations/{userId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Peer chat messages ─────────────────────────────────────────────────────
+    // Authenticated users can read/write chat messages.
+    match /messages/{messageId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ── Gamification / points ──────────────────────────────────────────────────
+    match /gamification/{userId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ── Notifications ──────────────────────────────────────────────────────────
+    // Any authenticated user can create notifications (e.g. when uploading a
+    // material and notifying classmates). Only the recipient can read/update/delete.
+    match /notifications/{notificationId} {
+      allow read, update, delete: if request.auth != null
+                                  && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null;
+    }
+  }
+}
